@@ -40,6 +40,8 @@
 #include "whrlpool.h"
 #include "tiger.h"
 
+#include "regtest.cpp"
+
 #include "bench.h"
 
 #include <iostream>
@@ -730,6 +732,13 @@ bool ValidateESIGN()
 }
 
 int main() {
+
 	cout << "Hello, World!" << endl;
+
+	RegisterFactories();
+	std::string seed = IntToString(time(NULL));
+	seed.resize(16);
+	s_globalRNG.SetKeyWithIV((byte *)seed.data(), 16, (byte *)seed.data());
+	
 	cout << ValidateRW() << endl;
 }

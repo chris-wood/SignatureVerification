@@ -523,19 +523,6 @@ bool ValidateRW()
 	return SignatureValidate(priv, pub);
 }
 
-/*
-bool ValidateBlumGoldwasser()
-{
-	cout << "\nBlumGoldwasser validation suite running...\n\n";
-
-	FileSource f("TestData/blum512.dat", true, new HexDecoder);
-	BlumGoldwasserPrivateKey priv(f);
-	BlumGoldwasserPublicKey pub(priv);
-
-	return CryptoSystemValidate(priv, pub);
-}
-*/
-
 bool ValidateECP()
 {
 	cout << "\nECP validation suite running...\n\n";

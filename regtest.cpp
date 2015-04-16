@@ -47,6 +47,7 @@
 #include "crc.h"
 #include "adler32.h"
 #include "sha3.h"
+#include "regtest.h"
 
 USING_NAMESPACE(CryptoPP)
 
