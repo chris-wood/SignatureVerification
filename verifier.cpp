@@ -40,6 +40,8 @@
 #include <iostream>
 #include <iomanip>
 #include <ctime>
+#include <cassert>
+#include <chrono>
 
 USING_NAMESPACE(CryptoPP)
 USING_NAMESPACE(std)
@@ -78,6 +80,17 @@ generateVerifyDescription(const string algorithmName, const int securityLevel, c
 	return fullDescription;
 }
 
+string 
+generateCSVString(string description, string operation, size_t delta) {
+	string csv;
+	csv.append(description);
+	csv.append(",");
+	csv.append(operation);
+	csv.append(",");
+	csv.append(to_string(delta));
+	return csv;
+}
+
 class FixedRNG : public RandomNumberGenerator
 {
 public:
@@ -92,7 +105,7 @@ private:
 	BufferedTransformation &m_source;
 };
 
-bool SignatureValidate(PK_Signer &priv, PK_Verifier &pub, const byte *input, 
+bool ProfileSignatureValidate(PK_Signer &priv, PK_Verifier &pub, const byte *input, 
 	const size_t inputLength, string description, bool thorough = false)
 {
 	bool pass = true, fail;
@@ -103,26 +116,23 @@ bool SignatureValidate(PK_Signer &priv, PK_Verifier &pub, const byte *input,
 	cout << (fail ? "FAILED    " : "passed    ");
 	cout << "signature key validation\n";
 
-	time_t signStartTime;
-	time_t signEndTime;
-	time_t verifyStartTime;
-	time_t verifyEndTime;
-
 	SecByteBlock signature(priv.MaxSignatureLength());
 
-	time(&signStartTime);
+	std::chrono::steady_clock::time_point signStartTime = std::chrono::steady_clock::now();
 	size_t signatureLength = priv.SignMessage(GlobalRNG(), input, inputLength, signature);
-	time(&signEndTime);
+	std::chrono::steady_clock::time_point signEndTime = std::chrono::steady_clock::now();
+	size_t signNanoSeconds = std::chrono::duration_cast<std::chrono::nanoseconds>(signEndTime - signStartTime).count();
 
-	time(&verifyStartTime);
+	cout << generateCSVString(description, "sign", signNanoSeconds) << endl;
+
+	std::chrono::steady_clock::time_point verifyStartTime = std::chrono::steady_clock::now();
 	fail = !pub.VerifyMessage(input, inputLength, signature, signatureLength);
-	time(&verifyEndTime);
+	std::chrono::steady_clock::time_point verifyEndTime = std::chrono::steady_clock::now();
+	size_t verifyNanoSeconds = std::chrono::duration_cast<std::chrono::nanoseconds>(verifyEndTime - verifyStartTime).count();
 
-	pass = pass && !fail;
+	cout << generateCSVString(description, "verify", verifyNanoSeconds) << endl;
 
-	cout << (fail ? "FAILED    " : "passed    ");
-	cout << "signature and verification\n";
-
+	assert(pass && !fail);
 	return pass;
 }
 
@@ -182,14 +192,14 @@ bool ValidateNR(const byte *input, const size_t inputLength, const int secLevel)
 		privS.AccessKey().Precompute();
 		NR<SHA>::Verifier pubS(privS);
 
-		pass = SignatureValidate(privS, pubS, input, inputLength, description) && pass;
+		pass = ProfileSignatureValidate(privS, pubS, input, inputLength, description) && pass;
 	}
 	{
 		cout << "Generating new signature key..." << endl;
 		NR<SHA>::Signer privS(GlobalRNG(), 256);
 		NR<SHA>::Verifier pubS(privS);
 
-		pass = SignatureValidate(privS, pubS, input, inputLength, description) && pass;
+		pass = ProfileSignatureValidate(privS, pubS, input, inputLength, description) && pass;
 	}
 	return pass;
 }
@@ -207,7 +217,7 @@ bool ValidateDSA(bool thorough, const byte *input, const size_t inputLength, con
 	FileSource fs2("TestData/dsa1024b.dat", true, new HexDecoder());
 	DSA::Verifier pub1(fs2);
 	assert(pub.GetKey() == pub1.GetKey());
-	pass = SignatureValidate(priv, pub, input, inputLength, description, thorough) && pass;
+	pass = ProfileSignatureValidate(priv, pub, input, inputLength, description, thorough) && pass;
 	// pass = RunTestDataFile("TestVectors/dsa.txt", g_nullNameValuePairs, thorough) && pass;
 	return pass;
 }
@@ -224,7 +234,7 @@ bool ValidateLUC(const byte *input, const size_t inputLength, const int secLevel
 		FileSource f("TestData/luc1024.dat", true, new HexDecoder);
 		LUCSSA_PKCS1v15_SHA_Signer priv(f);
 		LUCSSA_PKCS1v15_SHA_Verifier pub(priv);
-		pass = SignatureValidate(priv, pub, input, inputLength, description) && pass;
+		pass = ProfileSignatureValidate(priv, pub, input, inputLength, description) && pass;
 	}
 	return pass;
 }
@@ -238,7 +248,7 @@ bool ValidateLUC_DL(const byte *input, const size_t inputLength, const int secLe
 	FileSource f("TestData/lucs512.dat", true, new HexDecoder);
 	LUC_HMP<SHA>::Signer privS(f);
 	LUC_HMP<SHA>::Verifier pubS(privS);
-	bool pass = SignatureValidate(privS, pubS, input, inputLength, description);
+	bool pass = ProfileSignatureValidate(privS, pubS, input, inputLength, description);
 
 	return pass;
 }
@@ -255,7 +265,7 @@ bool ValidateRabin(const byte *input, const size_t inputLength, const int secLev
 		FileSource f("TestData/rabi1024.dat", true, new HexDecoder);
 		RabinSS<PSSR, SHA>::Signer priv(f);
 		RabinSS<PSSR, SHA>::Verifier pub(priv);
-		pass = SignatureValidate(priv, pub, input, inputLength, description) && pass;
+		pass = ProfileSignatureValidate(priv, pub, input, inputLength, description) && pass;
 	}
 
 	return pass;
@@ -271,7 +281,7 @@ bool ValidateRW(const byte *input, const size_t inputLength, const int secLevel)
 	RWSS<PSSR, SHA>::Signer priv(f);
 	RWSS<PSSR, SHA>::Verifier pub(priv);
 
-	return SignatureValidate(priv, pub, input, inputLength, description);
+	return ProfileSignatureValidate(priv, pub, input, inputLength, description);
 }
 
 bool ValidateECDSA(const byte *input, const size_t inputLength, const int secLevel)
@@ -321,7 +331,7 @@ bool ValidateECDSA(const byte *input, const size_t inputLength, const int secLev
 	fail = pub.VerifyMessage((byte *)"xyz", 3, sig, sizeof(sig));
 	pass = pass && !fail;
 
-	pass = SignatureValidate(priv, pub, input, inputLength, description) && pass;
+	pass = ProfileSignatureValidate(priv, pub, input, inputLength, description) && pass;
 
 	return pass;
 }
@@ -346,7 +356,7 @@ bool ValidateESIGN(const byte *input, const size_t inputLength, const int secLev
 	ESIGN<SHA>::Signer signer(keys);
 	ESIGN<SHA>::Verifier verifier(signer);
 
-	fail = !SignatureValidate(signer, verifier, input, inputLength, description);
+	fail = !ProfileSignatureValidate(signer, verifier, input, inputLength, description);
 	pass = pass && !fail;
 
 	fail = !verifier.VerifyMessage((byte *)plain, strlen(plain), signature, verifier.SignatureLength());
@@ -359,7 +369,7 @@ bool ValidateESIGN(const byte *input, const size_t inputLength, const int secLev
 	signer.AccessKey().GenerateRandom(GlobalRNG(), MakeParameters("Seed", ConstByteArrayParameter((const byte *)"test", 4))("KeySize", 3*512));
 	verifier = signer;
 
-	fail = !SignatureValidate(signer, verifier, input, inputLength, description);
+	fail = !ProfileSignatureValidate(signer, verifier, input, inputLength, description);
 	pass = pass && !fail;
 
 	return pass;
