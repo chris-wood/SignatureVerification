@@ -51,6 +51,33 @@ RandomNumberGenerator & GlobalRNG()
 	return s_globalRNG;
 }
 
+string generateDetailedDescription(const string algorithmName, 
+	const int securityLevel, const int keyLength) {
+	string fullDescription;
+	fullDescription.append(algorithmName);
+	fullDescription.append(",");
+	fullDescription.append(to_string(securityLevel));
+	fullDescription.append(",");
+	fullDescription.append(to_string(keyLength));
+	return fullDescription;
+}
+
+string 
+generateSignDescription(const string algorithmName, const int securityLevel, const int keyLength) {
+	string fullDescription;
+	fullDescription.append("sign,");
+	fullDescription.append(generateDetailedDescription(algorithmName, securityLevel, keyLength));
+	return fullDescription;
+}
+
+string 
+generateVerifyDescription(const string algorithmName, const int securityLevel, const int keyLength) {
+	string fullDescription;
+	fullDescription.append("verify,");
+	fullDescription.append(generateDetailedDescription(algorithmName, securityLevel, keyLength));
+	return fullDescription;
+}
+
 class FixedRNG : public RandomNumberGenerator
 {
 public:
@@ -65,7 +92,8 @@ private:
 	BufferedTransformation &m_source;
 };
 
-bool SignatureValidate(PK_Signer &priv, PK_Verifier &pub, const byte *input, const size_t inputLength, bool thorough = false)
+bool SignatureValidate(PK_Signer &priv, PK_Verifier &pub, const byte *input, 
+	const size_t inputLength, string description, bool thorough = false)
 {
 	bool pass = true, fail;
 
@@ -137,44 +165,16 @@ bool ValidateRSA()
 		cout << (fail ? "FAILED    " : "passed    ");
 		cout << "invalid signature verification\n";
 	}
-	{
-		byte *plain = (byte *)
-			"\x54\x85\x9b\x34\x2c\x49\xea\x2a";
-		byte *encrypted = (byte *)
-			"\x14\xbd\xdd\x28\xc9\x83\x35\x19\x23\x80\xe8\xe5\x49\xb1\x58\x2a"
-			"\x8b\x40\xb4\x48\x6d\x03\xa6\xa5\x31\x1f\x1f\xd5\xf0\xa1\x80\xe4"
-			"\x17\x53\x03\x29\xa9\x34\x90\x74\xb1\x52\x13\x54\x29\x08\x24\x52"
-			"\x62\x51";
-		byte *oaepSeed = (byte *)
-			"\xaa\xfd\x12\xf6\x59\xca\xe6\x34\x89\xb4\x79\xe5\x07\x6d\xde\xc2"
-			"\xf0\x6c\xb5\x8f";
-		ByteQueue bq;
-		bq.Put(oaepSeed, 20);
-		FixedRNG rng(bq);
-
-		FileSource privFile("TestData/rsa400pv.dat", true, new HexDecoder);
-		FileSource pubFile("TestData/rsa400pb.dat", true, new HexDecoder);
-		RSAES_OAEP_SHA_Decryptor rsaPriv;
-		rsaPriv.AccessKey().BERDecodePrivateKey(privFile, false, 0);
-		RSAES_OAEP_SHA_Encryptor rsaPub(pubFile);
-
-		memset(out, 0, 50);
-		memset(outPlain, 0, 8);
-		rsaPub.Encrypt(rng, plain, 8, out);
-		DecodingResult result = rsaPriv.FixedLengthDecrypt(GlobalRNG(), encrypted, outPlain);
-		fail = !result.isValidCoding || (result.messageLength!=8) || memcmp(out, encrypted, 50) || memcmp(plain, outPlain, 8);
-		pass = pass && !fail;
-
-		cout << (fail ? "FAILED    " : "passed    ");
-		cout << "PKCS 2.0 encryption and decryption\n";
-	}
 
 	return pass;
 }
 
-bool ValidateNR(const byte *input, const size_t inputLength)
+bool ValidateNR(const byte *input, const size_t inputLength, const int secLevel)
 {
 	cout << "\nNR validation suite running...\n\n";
+
+	string description = generateDetailedDescription("NR", secLevel, 1);
+
 	bool pass = true;
 	{
 		FileSource f("TestData/nr2048.dat", true, new HexDecoder);
@@ -182,21 +182,23 @@ bool ValidateNR(const byte *input, const size_t inputLength)
 		privS.AccessKey().Precompute();
 		NR<SHA>::Verifier pubS(privS);
 
-		pass = SignatureValidate(privS, pubS, input, inputLength) && pass;
+		pass = SignatureValidate(privS, pubS, input, inputLength, description) && pass;
 	}
 	{
 		cout << "Generating new signature key..." << endl;
 		NR<SHA>::Signer privS(GlobalRNG(), 256);
 		NR<SHA>::Verifier pubS(privS);
 
-		pass = SignatureValidate(privS, pubS, input, inputLength) && pass;
+		pass = SignatureValidate(privS, pubS, input, inputLength, description) && pass;
 	}
 	return pass;
 }
 
-bool ValidateDSA(bool thorough, const byte *input, const size_t inputLength)
+bool ValidateDSA(bool thorough, const byte *input, const size_t inputLength, const int secLevel)
 {
 	cout << "\nDSA validation suite running...\n\n";
+
+	string description = generateDetailedDescription("DSA", secLevel, 1);
 
 	bool pass = true;
 	FileSource fs1("TestData/dsa1024.dat", true, new HexDecoder());
@@ -205,66 +207,78 @@ bool ValidateDSA(bool thorough, const byte *input, const size_t inputLength)
 	FileSource fs2("TestData/dsa1024b.dat", true, new HexDecoder());
 	DSA::Verifier pub1(fs2);
 	assert(pub.GetKey() == pub1.GetKey());
-	pass = SignatureValidate(priv, pub, input, inputLength, thorough) && pass;
+	pass = SignatureValidate(priv, pub, input, inputLength, description, thorough) && pass;
 	// pass = RunTestDataFile("TestVectors/dsa.txt", g_nullNameValuePairs, thorough) && pass;
 	return pass;
 }
 
-bool ValidateLUC(const byte *input, const size_t inputLength)
+bool ValidateLUC(const byte *input, const size_t inputLength, const int secLevel)
 {
 	cout << "\nLUC validation suite running...\n\n";
+
+	string description = generateDetailedDescription("LUC", secLevel, 1);
+
 	bool pass=true;
 
 	{
 		FileSource f("TestData/luc1024.dat", true, new HexDecoder);
 		LUCSSA_PKCS1v15_SHA_Signer priv(f);
 		LUCSSA_PKCS1v15_SHA_Verifier pub(priv);
-		pass = SignatureValidate(priv, pub, input, inputLength) && pass;
+		pass = SignatureValidate(priv, pub, input, inputLength, description) && pass;
 	}
 	return pass;
 }
 
-bool ValidateLUC_DL(const byte *input, const size_t inputLength)
+bool ValidateLUC_DL(const byte *input, const size_t inputLength, const int secLevel)
 {
 	cout << "\nLUC-HMP validation suite running...\n\n";
+
+	string description = generateDetailedDescription("LUC-DL", secLevel, 1);
 
 	FileSource f("TestData/lucs512.dat", true, new HexDecoder);
 	LUC_HMP<SHA>::Signer privS(f);
 	LUC_HMP<SHA>::Verifier pubS(privS);
-	bool pass = SignatureValidate(privS, pubS, input, inputLength);
+	bool pass = SignatureValidate(privS, pubS, input, inputLength, description);
 
 	return pass;
 }
 
-bool ValidateRabin(const byte *input, const size_t inputLength)
+bool ValidateRabin(const byte *input, const size_t inputLength, const int secLevel)
 {
 	cout << "\nRabin validation suite running...\n\n";
+
+	string description = generateDetailedDescription("Rabin", secLevel, 1);
+
 	bool pass=true;
 
 	{
 		FileSource f("TestData/rabi1024.dat", true, new HexDecoder);
 		RabinSS<PSSR, SHA>::Signer priv(f);
 		RabinSS<PSSR, SHA>::Verifier pub(priv);
-		pass = SignatureValidate(priv, pub, input, inputLength) && pass;
+		pass = SignatureValidate(priv, pub, input, inputLength, description) && pass;
 	}
 
 	return pass;
 }
 
-bool ValidateRW(const byte *input, const size_t inputLength)
+bool ValidateRW(const byte *input, const size_t inputLength, const int secLevel)
 {
 	cout << "\nRW validation suite running...\n\n";
+
+	string description = generateDetailedDescription("RW", secLevel, 1);
 
 	FileSource f("TestData/rw1024.dat", true, new HexDecoder);
 	RWSS<PSSR, SHA>::Signer priv(f);
 	RWSS<PSSR, SHA>::Verifier pub(priv);
 
-	return SignatureValidate(priv, pub, input, inputLength);
+	return SignatureValidate(priv, pub, input, inputLength, description);
 }
 
-bool ValidateECDSA(const byte *input, const size_t inputLength)
+bool ValidateECDSA(const byte *input, const size_t inputLength, const int secLevel)
 {
 	cout << "\nECDSA validation suite running...\n\n";
+
+	string description = generateDetailedDescription("ECDSA", secLevel, 1);
 
 	// from Sample Test Vectors for P1363
 	GF2NT gf2n(191, 9, 0);
@@ -307,14 +321,16 @@ bool ValidateECDSA(const byte *input, const size_t inputLength)
 	fail = pub.VerifyMessage((byte *)"xyz", 3, sig, sizeof(sig));
 	pass = pass && !fail;
 
-	pass = SignatureValidate(priv, pub, input, inputLength) && pass;
+	pass = SignatureValidate(priv, pub, input, inputLength, description) && pass;
 
 	return pass;
 }
 
-bool ValidateESIGN(const byte *input, const size_t inputLength)
+bool ValidateESIGN(const byte *input, const size_t inputLength, const int secLevel)
 {
 	cout << "\nESIGN validation suite running...\n\n";
+
+	string description = generateDetailedDescription("ESIGN", secLevel, 1);
 
 	bool pass = true, fail;
 
@@ -330,7 +346,7 @@ bool ValidateESIGN(const byte *input, const size_t inputLength)
 	ESIGN<SHA>::Signer signer(keys);
 	ESIGN<SHA>::Verifier verifier(signer);
 
-	fail = !SignatureValidate(signer, verifier, input, inputLength);
+	fail = !SignatureValidate(signer, verifier, input, inputLength, description);
 	pass = pass && !fail;
 
 	fail = !verifier.VerifyMessage((byte *)plain, strlen(plain), signature, verifier.SignatureLength());
@@ -343,7 +359,7 @@ bool ValidateESIGN(const byte *input, const size_t inputLength)
 	signer.AccessKey().GenerateRandom(GlobalRNG(), MakeParameters("Seed", ConstByteArrayParameter((const byte *)"test", 4))("KeySize", 3*512));
 	verifier = signer;
 
-	fail = !SignatureValidate(signer, verifier, input, inputLength);
+	fail = !SignatureValidate(signer, verifier, input, inputLength, description);
 	pass = pass && !fail;
 
 	return pass;
@@ -379,5 +395,5 @@ int main(int argc, char **argv) {
 	s_globalRNG.SetKeyWithIV((byte *)rngSeed.data(), rngSeedLength, (byte *)rngSeed.data());
 	
 	// TODO: plug in all the other verification algorithms here
-	cout << ValidateRW(inputData, inputLength) << endl;
+	cout << ValidateRW(inputData, inputLength, securityLevel) << endl;
 }
