@@ -111,10 +111,7 @@ bool ProfileSignatureValidate(PK_Signer &priv, PK_Verifier &pub, const byte *inp
 	bool pass = true, fail;
 
 	fail = !pub.GetMaterial().Validate(GlobalRNG(), thorough ? 3 : 2) || !priv.GetMaterial().Validate(GlobalRNG(), thorough ? 3 : 2);
-	pass = pass && !fail;
-
-	cout << (fail ? "FAILED    " : "passed    ");
-	cout << "signature key validation\n";
+	assert(pass && !fail);
 
 	SecByteBlock signature(priv.MaxSignatureLength());
 
