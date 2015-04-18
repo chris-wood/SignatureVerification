@@ -46,6 +46,15 @@
 USING_NAMESPACE(CryptoPP)
 USING_NAMESPACE(std)
 
+// The following website contains the mapping of security levels to the appropriate scheme parameters
+// http://www.cryptopp.com/wiki/Security_Level
+#define NUMBER_OF_SECURITY_LENGTHS 5
+int securityLengths[NUMBER_OF_SECURITY_LENGTHS] = {80, 112, 128, 192, 256};
+int finiteFieldSizes[NUMBER_OF_SECURITY_LENGTHS] = {1024, 2048, 3072, 7680, 15360};
+int finiteFieldSubgroupSizes[NUMBER_OF_SECURITY_LENGTHS] = {160, 224, 256, 384, 511};
+int factorizationGroupSizes[NUMBER_OF_SECURITY_LENGTHS] = {1024, 2048, 3072, 7680, 15360};
+int ellipticCurveSizes[NUMBER_OF_SECURITY_LENGTHS] = {160, 224, 256, 384, 512};
+
 static OFB_Mode<AES>::Encryption s_globalRNG;
 
 RandomNumberGenerator & GlobalRNG()
