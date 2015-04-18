@@ -133,45 +133,16 @@ bool ProfileSignatureValidate(PK_Signer &priv, PK_Verifier &pub, const byte *inp
 	return pass;
 }
 
-bool ValidateRSA()
+bool ValidateRSA(const byte *input, const size_t inputLength, const int secLevel)
 {
-	cout << "\nRSA validation suite running...\n\n";
+	string description = generateDetailedDescription("RSA", secLevel, 1);
 
-	byte out[100], outPlain[100];
-	bool pass = true, fail;
+	FileSource keys("TestData/rsa512a.dat", true, new HexDecoder);
+	Weak::RSASSA_PKCS1v15_MD2_Signer rsaPriv(keys);
+	Weak::RSASSA_PKCS1v15_MD2_Verifier rsaPub(rsaPriv);
 
-	{
-		const char *plain = "Everyone gets Friday off.";
-		byte *signature = (byte *)
-			"\x05\xfa\x6a\x81\x2f\xc7\xdf\x8b\xf4\xf2\x54\x25\x09\xe0\x3e\x84"
-			"\x6e\x11\xb9\xc6\x20\xbe\x20\x09\xef\xb4\x40\xef\xbc\xc6\x69\x21"
-			"\x69\x94\xac\x04\xf3\x41\xb5\x7d\x05\x20\x2d\x42\x8f\xb2\xa2\x7b"
-			"\x5c\x77\xdf\xd9\xb1\x5b\xfc\x3d\x55\x93\x53\x50\x34\x10\xc1\xe1";
-
-		FileSource keys("TestData/rsa512a.dat", true, new HexDecoder);
-		Weak::RSASSA_PKCS1v15_MD2_Signer rsaPriv(keys);
-		Weak::RSASSA_PKCS1v15_MD2_Verifier rsaPub(rsaPriv);
-
-		size_t signatureLength = rsaPriv.SignMessage(GlobalRNG(), (byte *)plain, strlen(plain), out);
-		fail = memcmp(signature, out, 64) != 0;
-		pass = pass && !fail;
-
-		cout << (fail ? "FAILED    " : "passed    ");
-		cout << "signature check against test vector\n";
-
-		fail = !rsaPub.VerifyMessage((byte *)plain, strlen(plain), out, signatureLength);
-		pass = pass && !fail;
-
-		cout << (fail ? "FAILED    " : "passed    ");
-		cout << "verification check against test vector\n";
-
-		out[10]++;
-		fail = rsaPub.VerifyMessage((byte *)plain, strlen(plain), out, signatureLength);
-		pass = pass && !fail;
-
-		cout << (fail ? "FAILED    " : "passed    ");
-		cout << "invalid signature verification\n";
-	}
+	bool pass = ProfileSignatureValidate(rsaPriv, rsaPub, input, inputLength, description);
+	assert(pass);
 
 	return pass;
 }
@@ -199,7 +170,7 @@ bool ValidateNR(const byte *input, const size_t inputLength, const int secLevel)
 	return pass;
 }
 
-bool ValidateDSA(bool thorough, const byte *input, const size_t inputLength, const int secLevel)
+bool ValidateDSA(const byte *input, const size_t inputLength, const int secLevel)
 {
 	string description = generateDetailedDescription("DSA", secLevel, 1);
 
@@ -210,7 +181,7 @@ bool ValidateDSA(bool thorough, const byte *input, const size_t inputLength, con
 	FileSource fs2("TestData/dsa1024b.dat", true, new HexDecoder());
 	DSA::Verifier pub1(fs2);
 	assert(pub.GetKey() == pub1.GetKey());
-	pass = ProfileSignatureValidate(priv, pub, input, inputLength, description, thorough) && pass;
+	pass = ProfileSignatureValidate(priv, pub, input, inputLength, description) && pass;
 	return pass;
 }
 
@@ -352,6 +323,18 @@ bool ValidateESIGN(const byte *input, const size_t inputLength, const int secLev
 	return pass;
 }
 
+void ProfileSignatureSchemes(const byte *inputData, const size_t inputLength, const int securityLevel) {
+	ValidateRSA(inputData, inputLength, securityLevel);
+	ValidateNR(inputData, inputLength, securityLevel);
+	ValidateDSA(inputData, inputLength, securityLevel);
+	ValidateLUC(inputData, inputLength, securityLevel);
+	ValidateLUC_DL(inputData, inputLength, securityLevel);
+	ValidateRabin(inputData, inputLength, securityLevel);
+	ValidateRW(inputData, inputLength, securityLevel);
+	ValidateECDSA(inputData, inputLength, securityLevel);
+	ValidateESIGN(inputData, inputLength, securityLevel);
+}
+
 void showUsage() {
 	cout << "usage: verifier <security-level> <rng-seed>" << endl;
 	cout << "       security-level: the AES security equivalent level" << endl;
@@ -382,5 +365,5 @@ int main(int argc, char **argv) {
 	s_globalRNG.SetKeyWithIV((byte *)rngSeed.data(), rngSeedLength, (byte *)rngSeed.data());
 	
 	// TODO: plug in all the other verification algorithms here
-	ValidateRW(inputData, inputLength, securityLevel);
+	ProfileSignatureSchemes(inputData, inputLength, securityLevel);
 }
