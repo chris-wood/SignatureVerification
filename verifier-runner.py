@@ -18,7 +18,6 @@ def main(args):
 
 	for n in args.trials:
 		for size in args.sizes:
-			# verifierOutputLines = subprocess.check_output(['./verifier', ], stdin=payload).splitlines()
 			p = Popen(['./verifier', str(size), str(seed)], stdin=PIPE, stdout=PIPE, stderr=PIPE)
 			stdout, stderr = p.communicate(str(payload))
 			for line in stdout:
@@ -32,8 +31,9 @@ if __name__ == '__main__':
 	desc = '''
 Run the verifier. 
 
-$> python verifier-runner.py -t 100 -s 128 256 -r RANDOMSEEDFORTHISTEST
-YYY
+Example: s
+python verifier-runner.py -t 100 -s 112 -r RANDOMSEEDFORTHISTESTTESTTESTEASDASDAS -p 100
+<list of CSV lines>
 '''
 
 	parser = argparse.ArgumentParser(prog='verifier-runner', formatter_class=argparse.RawDescriptionHelpFormatter, description=desc)

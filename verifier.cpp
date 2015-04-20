@@ -63,29 +63,31 @@ RandomNumberGenerator & GlobalRNG()
 }
 
 string generateDetailedDescription(const string algorithmName,
-	const int securityLevel, const int keyLength) {
+	const int securityLevel, const int keyLength, const int inputLength) {
 	string fullDescription;
 	fullDescription.append(algorithmName);
 	fullDescription.append(",");
 	fullDescription.append(to_string(securityLevel));
 	fullDescription.append(",");
 	fullDescription.append(to_string(keyLength));
+	fullDescription.append(",");
+	fullDescription.append(to_string(inputLength));
 	return fullDescription;
 }
 
 string 
-generateSignDescription(const string algorithmName, const int securityLevel, const int keyLength) {
+generateSignDescription(const string algorithmName, const int securityLevel, const int keyLength, const int inputLength) {
 	string fullDescription;
 	fullDescription.append("sign,");
-	fullDescription.append(generateDetailedDescription(algorithmName, securityLevel, keyLength));
+	fullDescription.append(generateDetailedDescription(algorithmName, securityLevel, keyLength, inputLength));
 	return fullDescription;
 }
 
 string 
-generateVerifyDescription(const string algorithmName, const int securityLevel, const int keyLength) {
+generateVerifyDescription(const string algorithmName, const int securityLevel, const int keyLength, const int inputLength) {
 	string fullDescription;
 	fullDescription.append("verify,");
-	fullDescription.append(generateDetailedDescription(algorithmName, securityLevel, keyLength));
+	fullDescription.append(generateDetailedDescription(algorithmName, securityLevel, keyLength, inputLength));
 	return fullDescription;
 }
 
@@ -145,7 +147,7 @@ bool ProfileSignatureValidate(PK_Signer &priv, PK_Verifier &pub, const byte *inp
 bool ValidateRSA(const byte *input, const size_t inputLength, const int secLevelIndex)
 {
 	string description = generateDetailedDescription("RSA", securityLevels[secLevelIndex], 
-		factorizationGroupSizes[secLevelIndex]);
+		factorizationGroupSizes[secLevelIndex], inputLength);
 
 	// FileSource keys("TestData/rsa512a.dat", true, new HexDecoder);
 	// FileSource keys("mykey.pem", true, new HexDecoder);
@@ -164,7 +166,7 @@ bool ValidateRSA(const byte *input, const size_t inputLength, const int secLevel
 bool ValidateNR(const byte *input, const size_t inputLength, const int secLevelIndex)
 {
 	string description = generateDetailedDescription("NR", securityLevels[secLevelIndex], 
-		factorizationGroupSizes[secLevelIndex]);
+		factorizationGroupSizes[secLevelIndex], inputLength);
 
 	NR<SHA>::Signer privS(GlobalRNG(), finiteFieldSubgroupSizes[secLevelIndex]);
 	privS.AccessKey().Precompute();
@@ -177,7 +179,8 @@ bool ValidateNR(const byte *input, const size_t inputLength, const int secLevelI
 
 bool ValidateDSA(const byte *input, const size_t inputLength, const int secLevelIndex)
 {
-	string description = generateDetailedDescription("DSA", securityLevels[secLevelIndex], 1);
+	string description = generateDetailedDescription("DSA", securityLevels[secLevelIndex], 
+		factorizationGroupSizes[secLevelIndex], inputLength);
 
 	DSA::Signer priv(GlobalRNG(), factorizationGroupSizes[secLevelIndex]);
 	DSA::Verifier pub(priv);
@@ -189,7 +192,8 @@ bool ValidateDSA(const byte *input, const size_t inputLength, const int secLevel
 
 bool ValidateLUC(const byte *input, const size_t inputLength, const int secLevelIndex)
 {
-	string description = generateDetailedDescription("LUC", securityLevels[secLevelIndex], 1);
+	string description = generateDetailedDescription("LUC", securityLevels[secLevelIndex],
+		factorizationGroupSizes[secLevelIndex], inputLength);
 
 	LUCSSA_PKCS1v15_SHA_Signer priv(GlobalRNG(), factorizationGroupSizes[secLevelIndex]);
 	LUCSSA_PKCS1v15_SHA_Verifier pub(priv);
@@ -201,7 +205,8 @@ bool ValidateLUC(const byte *input, const size_t inputLength, const int secLevel
 
 bool ValidateLUC_DL(const byte *input, const size_t inputLength, const int secLevelIndex)
 {
-	string description = generateDetailedDescription("LUC-DL", securityLevels[secLevelIndex], 1);
+	string description = generateDetailedDescription("LUC-DL", securityLevels[secLevelIndex], 
+		finiteFieldSizes[secLevelIndex], inputLength);
 
 	LUC_HMP<SHA>::Signer privS(GlobalRNG(), finiteFieldSizes[secLevelIndex]);
 	LUC_HMP<SHA>::Verifier pubS(privS);
@@ -213,7 +218,8 @@ bool ValidateLUC_DL(const byte *input, const size_t inputLength, const int secLe
 
 bool ValidateRabin(const byte *input, const size_t inputLength, const int secLevelIndex)
 {
-	string description = generateDetailedDescription("Rabin", securityLevels[secLevelIndex], 1);
+	string description = generateDetailedDescription("Rabin", securityLevels[secLevelIndex], 
+		factorizationGroupSizes[secLevelIndex], inputLength);
 
 	RabinSS<PSSR, SHA>::Signer priv(GlobalRNG(), factorizationGroupSizes[secLevelIndex]);
 	RabinSS<PSSR, SHA>::Verifier pub(priv);
@@ -225,7 +231,8 @@ bool ValidateRabin(const byte *input, const size_t inputLength, const int secLev
 
 bool ValidateRW(const byte *input, const size_t inputLength, const int secLevelIndex)
 {
-	string description = generateDetailedDescription("RW", securityLevels[secLevelIndex], 1);
+	string description = generateDetailedDescription("RW", securityLevels[secLevelIndex], 
+		factorizationGroupSizes[secLevelIndex], inputLength);
 
 	RWSS<PSSR, SHA>::Signer priv(GlobalRNG(), factorizationGroupSizes[secLevelIndex]);
 	RWSS<PSSR, SHA>::Verifier pub(priv);
@@ -237,7 +244,7 @@ bool ValidateRW(const byte *input, const size_t inputLength, const int secLevelI
 
 bool ValidateECDSA(const byte *input, const size_t inputLength, const int secLevelIndex)
 {
-	string description = generateDetailedDescription("ECDSA", securityLevels[secLevelIndex], 1);
+	string description = generateDetailedDescription("ECDSA", securityLevels[secLevelIndex], 1, inputLength);
 
 	// from Sample Test Vectors for P1363
 	GF2NT gf2n(191, 9, 0);
