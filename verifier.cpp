@@ -292,10 +292,9 @@ void showUsage() {
 }
 
 int main(int argc, char **argv) {
-
 	if (argc != 3) {
 		showUsage();
-		return -1;
+		return 1;
 	}
 
 	int securityLevel = atoi(argv[1]);
