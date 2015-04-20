@@ -147,8 +147,12 @@ bool ValidateRSA(const byte *input, const size_t inputLength, const int secLevel
 	string description = generateDetailedDescription("RSA", securityLevels[secLevelIndex], 
 		factorizationGroupSizes[secLevelIndex]);
 
-	FileSource keys("TestData/rsa512a.dat", true, new HexDecoder);
-	Weak::RSASSA_PKCS1v15_MD2_Signer rsaPriv(keys);
+	// FileSource keys("TestData/rsa512a.dat", true, new HexDecoder);
+	// FileSource keys("mykey.pem", true, new HexDecoder);
+
+	// Weak::RSASSA_PKCS1v15_MD2_Signer rsaPriv(keys);
+
+	Weak::RSASSA_PKCS1v15_MD2_Signer rsaPriv(GlobalRNG(), factorizationGroupSizes[secLevelIndex]);
 	Weak::RSASSA_PKCS1v15_MD2_Verifier rsaPub(rsaPriv);
 
 	bool pass = ProfileSignatureValidate(rsaPriv, rsaPub, input, inputLength, description);
@@ -159,24 +163,15 @@ bool ValidateRSA(const byte *input, const size_t inputLength, const int secLevel
 
 bool ValidateNR(const byte *input, const size_t inputLength, const int secLevelIndex)
 {
-	string description = generateDetailedDescription("NR", securityLevels[secLevelIndex], 1);
+	string description = generateDetailedDescription("NR", securityLevels[secLevelIndex], 
+		factorizationGroupSizes[secLevelIndex]);
 
-	bool pass = true;
-	{
-		FileSource f("TestData/nr2048.dat", true, new HexDecoder);
-		NR<SHA>::Signer privS(f);
-		privS.AccessKey().Precompute();
-		NR<SHA>::Verifier pubS(privS);
+	NR<SHA>::Signer privS(GlobalRNG(), finiteFieldSubgroupSizes[secLevelIndex]);
+	privS.AccessKey().Precompute();
+	NR<SHA>::Verifier pubS(privS);
 
-		pass = ProfileSignatureValidate(privS, pubS, input, inputLength, description) && pass;
-	}
-	{
-		// cout << "Generating new signature key..." << endl;
-		NR<SHA>::Signer privS(GlobalRNG(), 256);
-		NR<SHA>::Verifier pubS(privS);
-
-		pass = ProfileSignatureValidate(privS, pubS, input, inputLength, description) && pass;
-	}
+	bool pass = ProfileSignatureValidate(privS, pubS, input, inputLength, description);
+	assert(pass);
 	return pass;
 }
 
@@ -184,14 +179,11 @@ bool ValidateDSA(const byte *input, const size_t inputLength, const int secLevel
 {
 	string description = generateDetailedDescription("DSA", securityLevels[secLevelIndex], 1);
 
-	bool pass = true;
-	FileSource fs1("TestData/dsa1024.dat", true, new HexDecoder());
-	DSA::Signer priv(fs1);
+	DSA::Signer priv(GlobalRNG(), factorizationGroupSizes[secLevelIndex]);
 	DSA::Verifier pub(priv);
-	FileSource fs2("TestData/dsa1024b.dat", true, new HexDecoder());
-	DSA::Verifier pub1(fs2);
-	assert(pub.GetKey() == pub1.GetKey());
-	pass = ProfileSignatureValidate(priv, pub, input, inputLength, description) && pass;
+	bool pass = ProfileSignatureValidate(priv, pub, input, inputLength, description);
+	assert(pass);
+
 	return pass;
 }
 
@@ -199,14 +191,11 @@ bool ValidateLUC(const byte *input, const size_t inputLength, const int secLevel
 {
 	string description = generateDetailedDescription("LUC", securityLevels[secLevelIndex], 1);
 
-	bool pass=true;
+	LUCSSA_PKCS1v15_SHA_Signer priv(GlobalRNG(), factorizationGroupSizes[secLevelIndex]);
+	LUCSSA_PKCS1v15_SHA_Verifier pub(priv);
+	bool pass = ProfileSignatureValidate(priv, pub, input, inputLength, description);
+	assert(pass);
 
-	{
-		FileSource f("TestData/luc1024.dat", true, new HexDecoder);
-		LUCSSA_PKCS1v15_SHA_Signer priv(f);
-		LUCSSA_PKCS1v15_SHA_Verifier pub(priv);
-		pass = ProfileSignatureValidate(priv, pub, input, inputLength, description) && pass;
-	}
 	return pass;
 }
 
@@ -214,10 +203,10 @@ bool ValidateLUC_DL(const byte *input, const size_t inputLength, const int secLe
 {
 	string description = generateDetailedDescription("LUC-DL", securityLevels[secLevelIndex], 1);
 
-	FileSource f("TestData/lucs512.dat", true, new HexDecoder);
-	LUC_HMP<SHA>::Signer privS(f);
+	LUC_HMP<SHA>::Signer privS(GlobalRNG(), finiteFieldSizes[secLevelIndex]);
 	LUC_HMP<SHA>::Verifier pubS(privS);
 	bool pass = ProfileSignatureValidate(privS, pubS, input, inputLength, description);
+	assert(pass);
 
 	return pass;
 }
@@ -226,14 +215,10 @@ bool ValidateRabin(const byte *input, const size_t inputLength, const int secLev
 {
 	string description = generateDetailedDescription("Rabin", securityLevels[secLevelIndex], 1);
 
-	bool pass=true;
-
-	{
-		FileSource f("TestData/rabi1024.dat", true, new HexDecoder);
-		RabinSS<PSSR, SHA>::Signer priv(f);
-		RabinSS<PSSR, SHA>::Verifier pub(priv);
-		pass = ProfileSignatureValidate(priv, pub, input, inputLength, description) && pass;
-	}
+	RabinSS<PSSR, SHA>::Signer priv(GlobalRNG(), factorizationGroupSizes[secLevelIndex]);
+	RabinSS<PSSR, SHA>::Verifier pub(priv);
+	bool pass = ProfileSignatureValidate(priv, pub, input, inputLength, description);
+	assert(pass);
 
 	return pass;
 }
@@ -242,11 +227,12 @@ bool ValidateRW(const byte *input, const size_t inputLength, const int secLevelI
 {
 	string description = generateDetailedDescription("RW", securityLevels[secLevelIndex], 1);
 
-	FileSource f("TestData/rw1024.dat", true, new HexDecoder);
-	RWSS<PSSR, SHA>::Signer priv(f);
+	RWSS<PSSR, SHA>::Signer priv(GlobalRNG(), factorizationGroupSizes[secLevelIndex]);
 	RWSS<PSSR, SHA>::Verifier pub(priv);
+	bool pass = ProfileSignatureValidate(priv, pub, input, inputLength, description);
+	assert(pass);
 
-	return ProfileSignatureValidate(priv, pub, input, inputLength, description);
+	return pass;
 }
 
 bool ValidateECDSA(const byte *input, const size_t inputLength, const int secLevelIndex)
@@ -274,19 +260,19 @@ bool ValidateECDSA(const byte *input, const size_t inputLength, const int secLev
 	return pass;
 }
 
-bool ValidateESIGN(const byte *input, const size_t inputLength, const int secLevelIndex)
-{
-	string description = generateDetailedDescription("ESIGN", securityLevels[secLevelIndex], 1);
-
-	FileSource keys("TestData/esig1536.dat", true, new HexDecoder);
-	ESIGN<SHA>::Signer signer(keys);
-	ESIGN<SHA>::Verifier verifier(signer);
-
-	bool pass = ProfileSignatureValidate(signer, verifier, input, inputLength, description);
-	assert(pass);
-
-	return pass;
-}
+// bool ValidateESIGN(const byte *input, const size_t inputLength, const int secLevelIndex)
+// {
+// 	string description = generateDetailedDescription("ESIGN", securityLevels[secLevelIndex], 1);
+// 
+// 	FileSource keys("TestData/esig1536.dat", true, new HexDecoder);
+// 	ESIGN<SHA>::Signer signer(keys);
+// 	ESIGN<SHA>::Verifier verifier(signer);
+// 
+// 	bool pass = ProfileSignatureValidate(signer, verifier, input, inputLength, description);
+// 	assert(pass);
+// 
+// 	return pass;
+// }
 
 void ProfileSignatureSchemes(const byte *inputData, const size_t inputLength, const int securityLevel) {
 	ValidateRSA(inputData, inputLength, securityLevel);
@@ -297,7 +283,6 @@ void ProfileSignatureSchemes(const byte *inputData, const size_t inputLength, co
 	ValidateRabin(inputData, inputLength, securityLevel);
 	ValidateRW(inputData, inputLength, securityLevel);
 	ValidateECDSA(inputData, inputLength, securityLevel);
-	ValidateESIGN(inputData, inputLength, securityLevel);
 }
 
 void showUsage() {
@@ -328,6 +313,14 @@ int main(int argc, char **argv) {
 	RegisterFactories();
 	rngSeed.resize(rngSeedLength);
 	s_globalRNG.SetKeyWithIV((byte *)rngSeed.data(), rngSeedLength, (byte *)rngSeed.data());
+
+	int securityIndex = 0;
+	for (int i = 0; i < NUMBER_OF_SECURITY_LENGTHS; i++) {
+		if (securityLevels[i] == securityLevel) {
+			securityIndex = i;
+			break;
+		}
+	}
 	
-	ProfileSignatureSchemes(inputData, inputLength, securityLevel);
+	ProfileSignatureSchemes(inputData, inputLength, securityIndex);
 }
